@@ -8,7 +8,7 @@ import java.nio.channels.SocketChannel;
 import java.util.UUID;
 
 public class Connector implements Closeable, SocketChannelAdapter.OnChannelStatusChangedListener {
-    private UUID key = UUID.randomUUID();
+    private final UUID key = UUID.randomUUID();
     private SocketChannel channel;
     private Sender sender;
     private Receiver receiver;

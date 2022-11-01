@@ -7,11 +7,10 @@ import libClink.core.Sender;
 import libClink.utils.CloseUtils;
 
 import java.io.IOException;
-import java.net.Socket;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class SocketChannelAdapter implements Sender, Receiver, Cloneable {
+public class SocketChannelAdapter implements Sender, Receiver {
 
     private  final AtomicBoolean isClosed = new AtomicBoolean(false);
 

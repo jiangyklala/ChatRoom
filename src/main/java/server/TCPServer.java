@@ -38,9 +38,7 @@ public class TCPServer implements ClientHandlerCallback {
             server.socket().bind(new InetSocketAddress(port)); // 绑定本地端口
             server.register(selector, SelectionKey.OP_ACCEPT); // 注册客户端连接到达的监听
 
-
             System.out.println("服务器信息：" + server.getLocalAddress().toString());
-
 
             // 启动客户端监听
             ClientListener listener = this.listener = new ClientListener();
@@ -88,8 +86,6 @@ public class TCPServer implements ClientHandlerCallback {
 
     @Override
     public void onNewMessageArrived(final ClientHandler handler, final String msg) {
-        // 打印到屏幕上
-        System.out.println("Received-" + handler.getClientInfo() + ": " + msg);
 
         // 异步提交转发任务
         forwardingThreadPoolExecutor.execute(() -> {
@@ -105,7 +101,6 @@ public class TCPServer implements ClientHandlerCallback {
                 }
             }
         });
-
     }
 
     private class ClientListener extends Thread {
@@ -146,8 +141,6 @@ public class TCPServer implements ClientHandlerCallback {
                             try {
                                 // 客户端构建异步线程
                                 ClientHandler clientHandler = new ClientHandler(socketChannel, TCPServer.this);
-                                // 读取数据并打印
-                                clientHandler.readToPrint();
 
                                 // 添加同步处理
                                 synchronized (TCPServer.this) {

@@ -1,5 +1,6 @@
 package server.handle;
 
+import libClink.core.Connector;
 import libClink.utils.CloseUtils;
 
 import java.io.*;
@@ -13,19 +14,36 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ClientHandler {
+    private final Connector connector;
     public final SocketChannel socketChannel;
-    private final ClientReadHandler readHandler;  // 客户端读
     private final ClientWriteHandler writeHandler;  // 客户端写
     private final ClientHandlerCallback clientHandlerCallback;  // 客户端调用后的回调
     private final  String clientInfo;
 
     public ClientHandler(SocketChannel socketChannel, ClientHandlerCallback clientHandlerCallback) throws IOException {
         this.socketChannel = socketChannel;
-        socketChannel.configureBlocking(false); // 设置非阻塞模式
 
-        Selector readSelector = Selector.open();
-        socketChannel.register(readSelector, SelectionKey.OP_READ);
-        this.readHandler = new ClientReadHandler(readSelector);
+//        socketChannel.configureBlocking(false); // 设置非阻塞模式
+
+//        Selector readSelector = Selector.open();
+//        socketChannel.register(readSelector, SelectionKey.OP_READ);
+//        this.readHandler = new ClientReadHandler(readSelector);
+
+        connector = new Connector() {
+
+            @Override
+            public void onChannelClosed(SocketChannel channel) {
+                super.onChannelClosed(channel);
+                exitBySelf();
+            }
+
+            @Override
+            protected void onReceiveNewMessage(String str) {
+                super.onReceiveNewMessage(str);
+                clientHandlerCallback.onNewMessageArrived(ClientHandler.this, str);
+            }
+        };
+        connector.setup(socketChannel);
 
         Selector writeSelector = Selector.open();
         socketChannel.register(writeSelector, SelectionKey.OP_WRITE);
@@ -40,9 +58,6 @@ public class ClientHandler {
         writeHandler.send(str);
     }
 
-    public void readToPrint() {
-        readHandler.start();
-    }
 
     /**
      * 获取客户端信息
@@ -57,7 +72,7 @@ public class ClientHandler {
     }
 
     public void exit() {
-        readHandler.exit();
+        CloseUtils.close(connector);
         writeHandler.exit();
         CloseUtils.close(socketChannel);
         System.out.println("客户端已退出：" + clientInfo);
@@ -121,77 +136,8 @@ public class ClientHandler {
                     }
                 }
 
-
             }
         }
     }
-
-    class ClientReadHandler extends Thread {
-        private boolean done = false;
-        private final Selector selector;
-        private final ByteBuffer byteBuffer;
-
-        ClientReadHandler(Selector selector) {
-            this.selector = selector;
-            this.byteBuffer = ByteBuffer.allocate(256);
-        }
-
-        @Override
-        public void run() {
-            super.run();
-            try {
-                do {
-                    // 客户端拿到一条数据
-                    if (selector.select() == 0) {
-                        if (done) {
-                            break;
-                        }
-                        continue;
-                    }
-
-                    Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
-                    while (iterator.hasNext()) {
-                        if (done) {
-                            break;
-                        }
-
-                        SelectionKey key = iterator.next();
-                        iterator.remove();
-
-                        if (key.isReadable()) {
-                            SocketChannel client = (SocketChannel) key.channel();
-                            byteBuffer.clear(); // 清空操作
-                            int read = client.read(byteBuffer);
-                            if (read > 0) {
-                                String str = new String(byteBuffer.array(), 0, read - 1); // 丢弃换行符
-                                // 通知到TCPServer
-                                clientHandlerCallback.onNewMessageArrived(ClientHandler.this, str);
-                            } else {
-                                System.out.println("客户端已无法读取数据！");
-                                // 退出当前客户端
-                                ClientHandler.this.exitBySelf();
-                                break;
-                            }
-                        }
-                    }
-                } while (!done);
-            } catch (Exception e) {
-                if (!done) {
-                    System.out.println("连接异常断开");
-                    ClientHandler.this.exitBySelf();
-                }
-            } finally {
-                // 连接关闭
-                CloseUtils.close(selector);
-            }
-        }
-
-        void exit() {
-            done = true;
-            selector.wakeup();
-            CloseUtils.close(selector);
-        }
-    }
-
 
 }
